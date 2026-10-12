@@ -16,6 +16,10 @@ COR_FUNDO: Cor = (0, 0, 0)
 LADO_REFERENCIA = 800
 ESCALA_MINIMA = 0.5
 
+# Tamanho máximo da imagem na janela. Imagens maiores são reduzidas só na exibição.
+LARGURA_MAXIMA_EXIBICAO = 1280
+ALTURA_MAXIMA_EXIBICAO = 720
+
 
 def _escala(imagem: np.ndarray) -> float:
     menor_lado = min(imagem.shape[0], imagem.shape[1])
@@ -98,10 +102,23 @@ def desenhar_legenda(imagem: np.ndarray, cores: Mapping[int, Cor] = CORES_BGR) -
         y += altura_linha
 
 
+def reduzir_para_caber(
+    imagem: np.ndarray,
+    largura_maxima: int = LARGURA_MAXIMA_EXIBICAO,
+    altura_maxima: int = ALTURA_MAXIMA_EXIBICAO,
+) -> np.ndarray:
+    altura, largura = imagem.shape[:2]
+    fator = min(largura_maxima / largura, altura_maxima / altura)
+    if fator >= 1:
+        return imagem.copy()
+    tamanho = (max(1, round(largura * fator)), max(1, round(altura * fator)))
+    return cv2.resize(imagem, tamanho, interpolation=cv2.INTER_AREA)
+
+
 def montar_imagem_de_exibicao(
     imagem: np.ndarray, nome_imagem: str, cores: Mapping[int, Cor] = CORES_BGR
 ) -> np.ndarray:
-    exibicao = imagem.copy()
+    exibicao = reduzir_para_caber(imagem)
     desenhar_identificacao(exibicao, nome_imagem)
     desenhar_legenda(exibicao, cores)
     return exibicao

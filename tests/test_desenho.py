@@ -5,6 +5,7 @@ from anotador.desenho import (
     desenhar_identificacao,
     desenhar_legenda,
     montar_imagem_de_exibicao,
+    reduzir_para_caber,
 )
 from anotador.modelos import CORES_BGR
 
@@ -113,6 +114,32 @@ def test_legenda_mantem_shape_e_dtype(base: np.ndarray) -> None:
     assert base.dtype == np.uint8
 
 
+# --- reduzir_para_caber ----------------------------------------------------
+
+
+def test_reduzir_nao_altera_imagem_que_ja_cabe(base: np.ndarray) -> None:
+    resultado = reduzir_para_caber(base, 600, 400)
+
+    assert resultado is not base
+    assert np.array_equal(resultado, base)
+
+
+@pytest.mark.parametrize(
+    ("forma", "esperada"),
+    [((1050, 1400, 3), (720, 960, 3)), ((540, 1920, 3), (360, 1280, 3))],
+    ids=["limitada_pela_altura", "limitada_pela_largura"],
+)
+def test_reduzir_mantem_a_proporcao(
+    forma: tuple[int, int, int], esperada: tuple[int, int, int]
+) -> None:
+    grande = np.full(forma, CINZA, dtype=np.uint8)
+
+    resultado = reduzir_para_caber(grande, 1280, 720)
+
+    assert resultado.shape == esperada
+    assert grande.shape == forma  # a original não é alterada
+
+
 # --- montar_imagem_de_exibicao ----------------------------------------------
 
 
@@ -125,7 +152,7 @@ def test_exibicao_nao_altera_a_imagem_recebida(base: np.ndarray) -> None:
     assert np.array_equal(base, original)
 
 
-def test_exibicao_mantem_a_resolucao_original(base: np.ndarray) -> None:
+def test_exibicao_mantem_a_resolucao_de_imagem_que_cabe_na_tela(base: np.ndarray) -> None:
     resultado = montar_imagem_de_exibicao(base, "foto01.jpg")
 
     assert resultado.shape == base.shape
@@ -158,3 +185,13 @@ def test_imagem_pequena_nao_gera_erro() -> None:
     resultado = montar_imagem_de_exibicao(pequena, "uma_imagem_com_nome_bem_longo.jpg")
 
     assert resultado.shape == (20, 30, 3)
+
+
+def test_exibicao_reduz_imagem_maior_que_a_tela_sem_alterar_a_original() -> None:
+    grande = np.full((1050, 1400, 3), CINZA, dtype=np.uint8)
+
+    resultado = montar_imagem_de_exibicao(grande, "foto01.jpg")
+
+    assert resultado.shape == (720, 960, 3)
+    assert grande.shape == (1050, 1400, 3)
+    assert np.all(grande == CINZA)
