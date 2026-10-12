@@ -2,6 +2,8 @@ import csv
 from pathlib import Path
 from typing import TypedDict
 
+from anotador.modelos import CORES_BGR
+
 COLUNA_IMAGEM = "imagem"
 COLUNAS_INTEIRAS = ("classe_id", "x_min", "y_min", "x_max", "y_max")
 COLUNAS_OBRIGATORIAS = (COLUNA_IMAGEM, *COLUNAS_INTEIRAS)
@@ -28,20 +30,26 @@ def ler_anotacoes(caminho: Path) -> list[LinhaAnotacao]:
 
         linhas: list[LinhaAnotacao] = []
         for linha in leitor:
+            prefixo = f"{caminho}: linha {leitor.line_num}"
             try:
-                linhas.append(
-                    LinhaAnotacao(
-                        imagem=linha[COLUNA_IMAGEM].strip(),
-                        classe_id=int(linha["classe_id"]),
-                        x_min=int(linha["x_min"]),
-                        y_min=int(linha["y_min"]),
-                        x_max=int(linha["x_max"]),
-                        y_max=int(linha["y_max"]),
-                    )
+                anotacao = LinhaAnotacao(
+                    imagem=linha[COLUNA_IMAGEM].strip(),
+                    classe_id=int(linha["classe_id"]),
+                    x_min=int(linha["x_min"]),
+                    y_min=int(linha["y_min"]),
+                    x_max=int(linha["x_max"]),
+                    y_max=int(linha["y_max"]),
                 )
             except (ValueError, TypeError, AttributeError) as erro:
+                raise ValueError(f"{prefixo}: valor inválido ou campo ausente") from erro
+
+            if not anotacao["imagem"]:
+                raise ValueError(f"{prefixo}: nome da imagem vazio")
+            if anotacao["classe_id"] not in CORES_BGR:
+                validas = ", ".join(str(c) for c in sorted(CORES_BGR))
                 raise ValueError(
-                    f"{caminho}: linha {leitor.line_num}: valor inválido ou campo ausente"
-                ) from erro
+                    f"{prefixo}: classe_id {anotacao['classe_id']} inválido (esperado: {validas})"
+                )
+            linhas.append(anotacao)
 
     return linhas

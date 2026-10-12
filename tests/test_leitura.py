@@ -127,6 +127,25 @@ def test_linha_com_campos_faltando_levanta_erro(tmp_path: Path) -> None:
         ler_anotacoes(caminho)
 
 
+@pytest.mark.parametrize("classe", ["2", "-1"])
+def test_classe_invalida_levanta_erro_com_numero_da_linha(tmp_path: Path, classe: str) -> None:
+    caminho = escrever_csv(
+        tmp_path,
+        "foto01.jpg,0,1,2,3,4",
+        f"foto02.jpg,{classe},1,2,3,4",
+    )
+
+    with pytest.raises(ValueError, match=f"linha 3: classe_id {classe} inválido"):
+        ler_anotacoes(caminho)
+
+
+def test_nome_da_imagem_vazio_levanta_erro_com_numero_da_linha(tmp_path: Path) -> None:
+    caminho = escrever_csv(tmp_path, "foto01.jpg,0,1,2,3,4", "  ,0,1,2,3,4")
+
+    with pytest.raises(ValueError, match="linha 3: nome da imagem vazio"):
+        ler_anotacoes(caminho)
+
+
 def test_arquivo_inexistente_levanta_file_not_found(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
         ler_anotacoes(tmp_path / "nao_existe.csv")
