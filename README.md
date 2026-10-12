@@ -106,14 +106,36 @@ linha vira uma `Deteccao` adicionada à imagem correspondente.
 ├── src/anotador/
 │   ├── __init__.py
 │   ├── agrupamento.py  # agrupamento das caixas por imagem
+│   ├── desenho.py      # identificação e legenda para a janela de exibição
 │   ├── leitura.py      # leitura do CSV e conversão para inteiros
 │   └── modelos.py      # Deteccao e ImagemAnotada
 ├── tests/
 │   ├── test_agrupamento.py
+│   ├── test_desenho.py
 │   ├── test_leitura.py
 │   └── test_modelos.py
 └── pyproject.toml
 ```
+
+## Desenho
+
+As caixas são desenhadas por `Deteccao.desenhar` (ver [Classes](#classes)). O módulo
+`src/anotador/desenho.py` acrescenta, para a janela de exibição, a identificação da imagem
+e a legenda das cores:
+
+- `desenhar_identificacao(imagem, texto)`: escreve o nome da imagem no canto superior
+  esquerdo, sobre um fundo escuro para ficar legível.
+- `desenhar_legenda(imagem, cores)`: desenha no canto inferior esquerdo uma linha por
+  classe, com a amostra da cor e o id (`Classe 0`, `Classe 1`), em ordem crescente de id.
+  Por padrão usa `CORES_BGR`, o mesmo dicionário usado para desenhar as caixas, então as
+  cores da legenda sempre correspondem às das caixas.
+- `montar_imagem_de_exibicao(imagem, nome_imagem)`: devolve uma **cópia** da imagem com a
+  identificação e a legenda, sem alterar a original e mantendo a resolução.
+O tamanho do texto cresce proporcionalmente à resolução da imagem (referência de 800 px no
+menor lado), para continuar legível em imagens grandes.
+
+A identificação e a legenda aparecem só na janela. As imagens salvas em `resultados/`
+contêm apenas as caixas, com a resolução original.
 
 ## Classes
 
@@ -166,6 +188,11 @@ O arquivo `tests/test_agrupamento.py` cobre `agrupamento.py`: entrada vazia, lin
 consecutivas e separadas da mesma imagem, imagens que não se misturam, valores copiados
 para a `Deteccao`, ordem das detecções e das chaves, caminho da imagem, entrada como
 iterável e um teste que lê um CSV embaralhado e agrupa o resultado.
+
+O arquivo `tests/test_desenho.py` cobre `desenho.py` com imagens sintéticas: a identificação
+fica no canto superior esquerdo e a legenda no inferior esquerdo, as cores correspondem às
+das classes e aparecem em ordem crescente de id, a imagem original não é alterada, a
+resolução é mantida, o texto cresce com a resolução e imagens muito pequenas não geram erro.
 
 ## Qualidade de código
 
