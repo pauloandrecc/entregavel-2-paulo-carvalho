@@ -80,15 +80,38 @@ Erros:
 - `ValueError`, se faltar alguma coluna no cabeçalho ou se um valor numérico for inválido
   (texto, decimal ou vazio). A mensagem informa o número da linha com problema.
 
+## Agrupamento por imagem
+
+O módulo `src/anotador/agrupamento.py` transforma as linhas lidas do CSV em objetos e
+agrupa as caixas pela imagem a que pertencem.
+
+A função `agrupar_por_imagem(linhas, diretorio_imagens)` devolve um dicionário que associa
+o nome de cada imagem a um `ImagemAnotada`, cujo caminho é `diretorio_imagens / nome`. Cada
+linha vira uma `Deteccao` adicionada à imagem correspondente.
+
+- Funciona mesmo que as linhas de uma imagem estejam separadas ou fora de ordem no CSV.
+- As chaves seguem a ordem da primeira aparição no arquivo e as detecções de cada imagem
+  seguem a ordem das linhas. A ordem alfabética das imagens é aplicada na hora de percorrê-las.
+- Imagens sem nenhuma linha no CSV não aparecem no dicionário.
+- A função não acessa o disco; a existência dos arquivos só é verificada ao gerar a imagem.
+
 ## Estrutura
 
 ```
 .
-├── dados/          # anotacoes.csv
-├── imagens/        # imagens de entrada (não são modificadas)
-├── resultados/     # imagens anotadas geradas pelo programa
-├── src/anotador/   # código-fonte
-├── tests/          # testes automatizados
+├── dados/
+│   └── anotacoes.csv   # uma bounding box por linha
+├── imagens/            # imagens de entrada (não são modificadas)
+├── resultados/         # imagens anotadas geradas pelo programa
+├── src/anotador/
+│   ├── __init__.py
+│   ├── agrupamento.py  # agrupamento das caixas por imagem
+│   ├── leitura.py      # leitura do CSV e conversão para inteiros
+│   └── modelos.py      # Deteccao e ImagemAnotada
+├── tests/
+│   ├── test_agrupamento.py
+│   ├── test_leitura.py
+│   └── test_modelos.py
 └── pyproject.toml
 ```
 
@@ -138,6 +161,11 @@ O arquivo `tests/test_leitura.py` cobre `leitura.py` com CSVs temporários (`tmp
 conversão para `int`, ordem preservada, colunas em outra ordem, espaços e BOM UTF-8,
 arquivo vazio ou só com cabeçalho, coluna faltando, valor numérico inválido (com o número
 da linha no erro) e arquivo inexistente.
+
+O arquivo `tests/test_agrupamento.py` cobre `agrupamento.py`: entrada vazia, linhas
+consecutivas e separadas da mesma imagem, imagens que não se misturam, valores copiados
+para a `Deteccao`, ordem das detecções e das chaves, caminho da imagem, entrada como
+iterável e um teste que lê um CSV embaralhado e agrupa o resultado.
 
 ## Qualidade de código
 
