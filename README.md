@@ -6,12 +6,11 @@
 
 Programa em Python que lê bounding boxes de um arquivo CSV e as desenha sobre as imagens correspondentes usando OpenCV.
 
-> **Status:** em desenvolvimento.
-
 ## Objetivo
 
 - Ler `dados/anotacoes.csv` e agrupar as caixas pelo nome da imagem.
 - Desenhar as caixas em cada imagem de `imagens/`, com cores por classe, identificação da imagem e legenda.
+- Validar os dados: campos numéricos, classe (0 ou 1) e coordenadas dentro dos limites de cada imagem.
 - Salvar as imagens anotadas em `resultados/`, mantendo nome e resolução originais.
 - Exibir uma imagem por vez: `espaço` avança, `q` encerra.
 
@@ -28,11 +27,29 @@ Programa em Python que lê bounding boxes de um arquivo CSV e as desenha sobre a
 
 ## Instalação
 
+É preciso Python 3 e um ambiente que permita abrir janelas gráficas (Linux, Windows, macOS
+ou WSL com suporte gráfico). Na raiz do repositório:
+
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 ```
+
+Esse comando instala, de uma vez, o `opencv-python`, as ferramentas de desenvolvimento
+(testes, lint e atalhos `poe`) e o próprio pacote `anotador` em modo editável, o que permite
+executá-lo com `python -m anotador` a partir da raiz do projeto.
+
+Para apenas executar o programa, sem as ferramentas de desenvolvimento, basta o
+`requirements.txt`, que instala só o `opencv-python`:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Nesse caso o pacote não fica instalado, então a execução precisa indicar a pasta `src`
+(ver [Execução](#execução)).
+
 ## Atalhos de desenvolvimento (Poe)
 
 Os comandos mais usados estão definidos em `[tool.poe.tasks]` no `pyproject.toml` e
@@ -58,7 +75,13 @@ Para listar as tarefas disponíveis: `poe --help`.
 Com o ambiente virtual ativado, na raiz do projeto:
 
 ```bash
-poe run                # ou: python -m anotador
+python -m anotador             # ou: poe run
+```
+
+Se a instalação foi feita só com o `requirements.txt`, indique a pasta `src`:
+
+```bash
+PYTHONPATH=src python -m anotador
 ```
 
 Uma execução completa gera dez imagens anotadas em `resultados/`.
@@ -80,10 +103,26 @@ Para cada imagem, o terminal mostra o nome e a quantidade de caixas desenhadas, 
 o total de imagens processadas:
 
 ```
-a.png - caixas desenhadas: 2
-b.png - caixas desenhadas: 0
-c.png - caixas desenhadas: 1
-3 imagens processadas; resultados em resultados
+cena_01_parque.jpg - caixas desenhadas: 61
+cena_02_praca_noturna.jpg - caixas desenhadas: 60
+cena_03_patio.jpg - caixas desenhadas: 64
+cena_04_quadra.jpg - caixas desenhadas: 55
+cena_05_rua_noturna.jpg - caixas desenhadas: 51
+cena_06_cruzamento.jpg - caixas desenhadas: 63
+cena_07_quadras_aereas.jpg - caixas desenhadas: 53
+cena_08_avenida_noturna.jpg - caixas desenhadas: 61
+cena_09_avenida_aerea.jpg - caixas desenhadas: 61
+cena_10_onibus.jpg - caixas desenhadas: 52
+10 imagens processadas; resultados em resultados
+```
+
+Se o CSV ou uma imagem não puderem ser lidos, ou se algum dado for inválido, o programa
+mostra uma mensagem de erro e encerra com código 1. Exemplos:
+
+```
+Erro: dados/anotacoes.csv: linha 7: valor inválido ou campo ausente
+Erro: dados/anotacoes.csv: linha 12: classe_id 2 inválido (esperado: 0, 1)
+Erro: cena_03_patio.jpg: caixa fora dos limites da imagem (1360x765): Deteccao(classe_id=0, x_min=1300, y_min=10, x_max=1360, y_max=40)
 ```
 
 ## Controles do visualizador
@@ -113,8 +152,14 @@ uma por linha do arquivo e na mesma ordem, com `classe_id`, `x_min`, `y_min`, `x
 Erros:
 
 - `FileNotFoundError`, se o arquivo não existir;
-- `ValueError`, se faltar alguma coluna no cabeçalho ou se um valor numérico for inválido
-  (texto, decimal ou vazio). A mensagem informa o número da linha com problema.
+- `ValueError`, se faltar alguma coluna no cabeçalho, se um valor numérico for inválido
+  (texto, decimal ou vazio), se o nome da imagem estiver vazio ou se o `classe_id` não
+  tiver cor definida (só 0 e 1 são aceitos). A mensagem informa o número da linha com
+  problema.
+
+Como essas verificações acontecem na leitura, um CSV inválido interrompe o programa antes de
+qualquer imagem ser processada. Os limites das coordenadas dependem do tamanho de cada
+imagem, por isso são verificados ao gerar a imagem (ver [Classes](#classes)).
 
 ## Agrupamento por imagem
 
@@ -136,7 +181,8 @@ linha vira uma `Deteccao` adicionada à imagem correspondente.
 ```
 .
 ├── dados/
-│   └── anotacoes.csv   # uma bounding box por linha
+│   ├── anotacoes.csv            # uma bounding box por linha
+│   └── mapeamento_imagens.csv   # nomes originais, dimensões e contagens (conferência)
 ├── imagens/            # imagens de entrada (não são modificadas)
 ├── resultados/         # imagens anotadas geradas pelo programa
 ├── src/anotador/
@@ -155,7 +201,8 @@ linha vira uma `Deteccao` adicionada à imagem correspondente.
 │   ├── test_leitura.py
 │   ├── test_main.py
 │   └── test_modelos.py
-└── pyproject.toml
+├── pyproject.toml
+└── requirements.txt
 ```
 
 ## Desenho
@@ -170,9 +217,14 @@ e a legenda das cores:
   classe, com a amostra da cor e o id (`Classe 0`, `Classe 1`), em ordem crescente de id.
   Por padrão usa `CORES_BGR`, o mesmo dicionário usado para desenhar as caixas, então as
   cores da legenda sempre correspondem às das caixas.
-- `montar_imagem_de_exibicao(imagem, nome_imagem)`: devolve uma **cópia** da imagem com a
-  identificação e a legenda, sem alterar a original e mantendo a resolução.
-O tamanho do texto cresce proporcionalmente à resolução da imagem (referência de 800 px no
+- `reduzir_para_caber(imagem)`: devolve uma cópia reduzida para caber em 1280×720,
+  mantendo a proporção. Imagens menores são apenas copiadas, nunca ampliadas.
+- `montar_imagem_de_exibicao(imagem, nome_imagem)`: devolve uma **cópia** da imagem,
+  reduzida se necessário, com a identificação e a legenda, sem alterar a original.
+
+As caixas são desenhadas na resolução original e só a cópia de exibição é reduzida, depois
+do desenho. A identificação e a legenda são escritas já na cópia reduzida, para continuarem
+legíveis na tela. O tamanho do texto cresce proporcionalmente à resolução da imagem (referência de 800 px no
 menor lado), para continuar legível em imagens grandes.
 
 A identificação e a legenda aparecem só na janela. As imagens salvas em `resultados/`
@@ -236,7 +288,9 @@ As classes ficam em `src/anotador/modelos.py`.
 ### `Deteccao`
 
 Representa uma bounding box. Guarda `classe_id`, `x_min`, `y_min`, `x_max` e `y_max`
-e é imutável (`dataclass` com `frozen=True`). O método `desenhar(imagem)` desenha a
+e é imutável (`dataclass` com `frozen=True`). O método
+`esta_dentro_dos_limites(largura, altura)` verifica se `0 ≤ x_min < x_max < largura` e
+`0 ≤ y_min < y_max < altura`. O método `desenhar(imagem)` desenha a
 própria caixa na imagem recebida, usando a cor da classe definida em `CORES_BGR`
 (classe 0 em verde, classe 1 em vermelho, no formato BGR do OpenCV). Uma classe sem
 cor definida levanta `ValueError`.
@@ -245,8 +299,10 @@ cor definida levanta `ValueError`.
 
 Associa uma imagem às suas detecções. Guarda o `caminho` do arquivo e a lista
 `deteccoes`. O método `adicionar_deteccao(deteccao)` inclui uma caixa na lista, e
-`gerar_imagem()` lê o arquivo e devolve uma cópia com todas as caixas desenhadas,
-chamando `desenhar` de cada detecção. O arquivo de entrada não é alterado e a
+`gerar_imagem()` lê o arquivo, confere se todas as caixas estão dentro dos limites da
+imagem e devolve uma cópia com todas as caixas desenhadas, chamando `desenhar` de cada
+detecção. Uma caixa fora dos limites levanta `ValueError` com o nome da imagem, a resolução
+e a caixa inválida. O arquivo de entrada não é alterado e a
 resolução original é mantida.
 
 ## Testes
@@ -266,15 +322,16 @@ Os testes ficam em `tests/`. O arquivo `tests/test_modelos.py` cobre `modelos.py
 imagens sintéticas (NumPy) e arquivos temporários (`tmp_path`), sem abrir janelas:
 
 - `Deteccao`: valores armazenados, imutabilidade, cor da borda por classe, interior e área
-  externa intactos, `shape` preservado e erro para classe sem cor.
+  externa intactos, `shape` preservado, erro para classe sem cor e verificação dos limites
+  (incluindo `x_max` igual à largura e `x_min` igual a `x_max`).
 - `ImagemAnotada`: lista de detecções independente por instância, ordem das detecções,
   todas as caixas desenhadas, resolução original, arquivo de entrada intacto e erro para
-  caminho inexistente.
+  caminho inexistente ou caixa fora dos limites.
 
 O arquivo `tests/test_leitura.py` cobre `leitura.py` com CSVs temporários (`tmp_path`):
 conversão para `int`, ordem preservada, colunas em outra ordem, espaços e BOM UTF-8,
-arquivo vazio ou só com cabeçalho, coluna faltando, valor numérico inválido (com o número
-da linha no erro) e arquivo inexistente.
+arquivo vazio ou só com cabeçalho, coluna faltando, valor numérico inválido, classe
+inválida e nome de imagem vazio (com o número da linha no erro) e arquivo inexistente.
 
 O arquivo `tests/test_agrupamento.py` cobre `agrupamento.py`: entrada vazia, linhas
 consecutivas e separadas da mesma imagem, imagens que não se misturam, valores copiados
@@ -283,8 +340,8 @@ iterável e um teste que lê um CSV embaralhado e agrupa o resultado.
 
 O arquivo `tests/test_desenho.py` cobre `desenho.py` com imagens sintéticas: a identificação
 fica no canto superior esquerdo e a legenda no inferior esquerdo, as cores correspondem às
-das classes e aparecem em ordem crescente de id, a imagem original não é alterada, a
-resolução é mantida, o texto cresce com a resolução e imagens muito pequenas não geram erro.
+das classes e aparecem em ordem crescente de id, a imagem original não é alterada, imagens
+que cabem na tela mantêm a resolução, imagens maiores são reduzidas mantendo a proporção, o texto cresce com a resolução e imagens muito pequenas não geram erro.
 
 O arquivo `tests/test_arquivos.py` cobre `arquivos.py` com pastas temporárias (`tmp_path`):
 ordem alfabética (com arquivos criados fora de ordem e sem diferenciar maiúsculas), filtro
@@ -297,7 +354,8 @@ O arquivo `tests/test_main.py` cobre `main.py` usando um exibidor falso no lugar
 interpretação das teclas, ordem alfabética, uma imagem salva por entrada com nome e resolução
 originais, cores das caixas no arquivo salvo, imagem sem anotação, identificação e legenda só
 na exibição, entradas intactas, saída do terminal, `q` interrompendo o percurso, aviso de
-imagens ausentes, pasta sem imagens, CSV inexistente, opções da linha de comando e a função
+imagens ausentes, pasta sem imagens, CSV inexistente, caixa fora dos limites, classe inválida
+interrompendo antes de qualquer imagem, opções da linha de comando e a função
 `main` (código 0 em caso de sucesso, código 1 em caso de erro e janelas sempre fechadas).
 
 As funções `mostrar_e_esperar` e `_janela_fechada` usam a janela real do OpenCV. Por isso
