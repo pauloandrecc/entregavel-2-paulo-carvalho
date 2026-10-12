@@ -106,11 +106,13 @@ linha vira uma `Deteccao` adicionada à imagem correspondente.
 ├── src/anotador/
 │   ├── __init__.py
 │   ├── agrupamento.py  # agrupamento das caixas por imagem
+│   ├── arquivos.py     # listagem ordenada e salvamento das imagens
 │   ├── desenho.py      # identificação e legenda para a janela de exibição
 │   ├── leitura.py      # leitura do CSV e conversão para inteiros
 │   └── modelos.py      # Deteccao e ImagemAnotada
 ├── tests/
 │   ├── test_agrupamento.py
+│   ├── test_arquivos.py
 │   ├── test_desenho.py
 │   ├── test_leitura.py
 │   └── test_modelos.py
@@ -136,6 +138,28 @@ menor lado), para continuar legível em imagens grandes.
 
 A identificação e a legenda aparecem só na janela. As imagens salvas em `resultados/`
 contêm apenas as caixas, com a resolução original.
+
+## Listagem e salvamento das imagens
+
+O módulo `src/anotador/arquivos.py` cuida dos arquivos de imagem.
+
+`listar_imagens(diretorio)` devolve os caminhos das imagens da pasta em ordem alfabética,
+sem diferenciar maiúsculas de minúsculas. Só entram arquivos `.jpg`, `.jpeg`, `.png` e
+`.bmp` (em qualquer caixa); subpastas e outros tipos de arquivo são ignorados. A ordem é
+alfabética simples, não "natural": `img10.png` vem antes de `img2.png`, então use zeros à
+esquerda nos nomes (`img_01`, `img_02`, ...). Se a pasta não existir, levanta
+`FileNotFoundError`.
+
+`salvar_resultado(imagem, caminho_origem, diretorio_resultados)` grava a imagem anotada em
+`resultados/` com o mesmo nome do arquivo de origem e sem redimensionar. A pasta é criada se
+não existir, um resultado anterior com o mesmo nome é substituído e o caminho salvo é
+devolvido.
+
+- As imagens de entrada nunca são sobrescritas: se o destino for o próprio arquivo de
+  origem (por exemplo, pasta de resultados igual à de imagens), levanta `ValueError`.
+- Se a gravação falhar, levanta `OSError`.
+- Imagens JPG são recodificadas ao salvar: a resolução se mantém, mas os valores dos pixels
+  mudam um pouco. Em PNG a cópia é exata.
 
 ## Classes
 
@@ -193,6 +217,13 @@ O arquivo `tests/test_desenho.py` cobre `desenho.py` com imagens sintéticas: a 
 fica no canto superior esquerdo e a legenda no inferior esquerdo, as cores correspondem às
 das classes e aparecem em ordem crescente de id, a imagem original não é alterada, a
 resolução é mantida, o texto cresce com a resolução e imagens muito pequenas não geram erro.
+
+O arquivo `tests/test_arquivos.py` cobre `arquivos.py` com pastas temporárias (`tmp_path`):
+ordem alfabética (com arquivos criados fora de ordem e sem diferenciar maiúsculas), filtro
+de extensões, subpastas ignoradas, pasta vazia ou inexistente, nome preservado ao salvar,
+pasta de resultados criada, resolução e conteúdo mantidos, resultado anterior substituído,
+imagem de entrada intacta (inclusive quando a pasta de saída é a mesma da entrada) e erro
+quando a gravação falha.
 
 ## Qualidade de código
 
