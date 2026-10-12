@@ -2,6 +2,8 @@
 
 ![CI](https://github.com/pauloandrecc/entregavel-2-paulo-carvalho/actions/workflows/ci.yml/badge.svg)
 
+**Autor:** Paulo André Cardoso Carvalho
+
 Programa em Python que lê bounding boxes de um arquivo CSV e as desenha sobre as imagens correspondentes usando OpenCV.
 
 > **Status:** em desenvolvimento.
@@ -51,6 +53,39 @@ funcionam com o ambiente virtual ativo:
 
 Para listar as tarefas disponíveis: `poe --help`.
 
+## Execução
+
+Com o ambiente virtual ativado, na raiz do projeto:
+
+```bash
+poe run                # ou: python -m anotador
+```
+
+Uma execução completa gera dez imagens anotadas em `resultados/`.
+
+Sem argumentos, o programa usa caminhos relativos à pasta atual, por isso deve ser executado
+na raiz do projeto. As opções abaixo são todas opcionais:
+
+| Opção | Padrão | Descrição |
+| --- | --- | --- |
+| `--csv` | `dados/anotacoes.csv` | arquivo de anotações |
+| `--imagens` | `imagens` | pasta das imagens de entrada |
+| `--resultados` | `resultados` | pasta das imagens anotadas |
+
+```bash
+python -m anotador --imagens outras_imagens --resultados saida
+```
+
+Para cada imagem, o terminal mostra o nome e a quantidade de caixas desenhadas, e no final
+o total de imagens processadas:
+
+```
+a.png - caixas desenhadas: 2
+b.png - caixas desenhadas: 0
+c.png - caixas desenhadas: 1
+3 imagens processadas; resultados em resultados
+```
+
 ## Controles do visualizador
 
 | Tecla | Ação |
@@ -59,7 +94,8 @@ Para listar as tarefas disponíveis: `poe --help`.
 | `q` | encerra o programa |
 | qualquer outra | mantém a imagem atual |
 
-Ao chegar à última imagem, as janelas são fechadas.
+Fechar a janela no botão de fechar do sistema também encerra o programa. Ao chegar à
+última imagem, as janelas são fechadas.
 
 ## Leitura do CSV
 
@@ -105,16 +141,19 @@ linha vira uma `Deteccao` adicionada à imagem correspondente.
 ├── resultados/         # imagens anotadas geradas pelo programa
 ├── src/anotador/
 │   ├── __init__.py
+│   ├── __main__.py     # permite executar com python -m anotador
 │   ├── agrupamento.py  # agrupamento das caixas por imagem
 │   ├── arquivos.py     # listagem ordenada e salvamento das imagens
 │   ├── desenho.py      # identificação e legenda para a janela de exibição
 │   ├── leitura.py      # leitura do CSV e conversão para inteiros
+│   ├── main.py         # loop de exibição e execução principal
 │   └── modelos.py      # Deteccao e ImagemAnotada
 ├── tests/
 │   ├── test_agrupamento.py
 │   ├── test_arquivos.py
 │   ├── test_desenho.py
 │   ├── test_leitura.py
+│   ├── test_main.py
 │   └── test_modelos.py
 └── pyproject.toml
 ```
@@ -160,6 +199,35 @@ devolvido.
 - Se a gravação falhar, levanta `OSError`.
 - Imagens JPG são recodificadas ao salvar: a resolução se mantém, mas os valores dos pixels
   mudam um pouco. Em PNG a cópia é exata.
+
+## Execução principal
+
+O módulo `src/anotador/main.py` junta as etapas anteriores.
+
+`executar(arquivo_csv, diretorio_imagens, diretorio_resultados, exibir)` lê o CSV, agrupa as
+caixas, lista as imagens em ordem alfabética e, para cada uma:
+
+1. desenha as caixas e salva o resultado em `resultados/`;
+2. mostra no terminal o nome da imagem e a quantidade de caixas desenhadas;
+3. exibe a imagem, com identificação e legenda, até o usuário avançar ou sair.
+Devolve quantas imagens foram processadas.
+
+- A imagem é salva **antes** de ser exibida. Se o usuário sair com `q` na terceira imagem,
+  as três primeiras já estão em `resultados/`; as demais não são processadas. Para gerar as
+  dez, é preciso avançar até o fim.
+- Imagens sem nenhuma anotação também são processadas e salvas, com zero caixas.
+- Se o CSV citar imagens que não existem na pasta, um aviso é mostrado no `stderr`.
+- A função de exibição é recebida como parâmetro (`exibir`). Na execução real é
+  `mostrar_e_esperar`; nos testes, um substituto sem janela.
+`interpretar_tecla(tecla)` traduz o código devolvido por `cv2.waitKey`: espaço avança, `q`
+encerra e qualquer outra tecla mantém a imagem atual.
+
+`mostrar_e_esperar(titulo, imagem)` abre uma janela redimensionável do OpenCV, mostra a
+imagem e espera uma tecla (espaço ou `q`) ou o fechamento da janela. A janela é redimensionável
+apenas na tela: o arquivo salvo mantém a resolução original.
+
+`main(argv)` lê as opções da linha de comando, chama `executar` e fecha todas as janelas ao
+final, mesmo em caso de erro. Devolve 0 em caso de sucesso e 1 se ocorrer um erro.
 
 ## Classes
 
@@ -224,6 +292,24 @@ de extensões, subpastas ignoradas, pasta vazia ou inexistente, nome preservado 
 pasta de resultados criada, resolução e conteúdo mantidos, resultado anterior substituído,
 imagem de entrada intacta (inclusive quando a pasta de saída é a mesma da entrada) e erro
 quando a gravação falha.
+
+O arquivo `tests/test_main.py` cobre `main.py` usando um exibidor falso no lugar da janela:
+interpretação das teclas, ordem alfabética, uma imagem salva por entrada com nome e resolução
+originais, cores das caixas no arquivo salvo, imagem sem anotação, identificação e legenda só
+na exibição, entradas intactas, saída do terminal, `q` interrompendo o percurso, aviso de
+imagens ausentes, pasta sem imagens, CSV inexistente, opções da linha de comando e a função
+`main` (código 0 em caso de sucesso, código 1 em caso de erro e janelas sempre fechadas).
+
+As funções `mostrar_e_esperar` e `_janela_fechada` usam a janela real do OpenCV. Por isso
+ficam fora dos testes automatizados e da medição de cobertura (`# pragma: no cover`) e devem
+ser verificadas manualmente:
+
+1. rode `poe run` na raiz do projeto;
+2. avance com `espaço` e confira que o terminal mostra o nome e a quantidade de caixas;
+3. aperte outras teclas e confira que a imagem não muda;
+4. saia com `q` em uma execução e feche a janela no botão de fechar em outra;
+5. numa execução completa, confira que `resultados/` tem as dez imagens, com a resolução
+   original, e que as imagens de `imagens/` não foram alteradas.
 
 ## Qualidade de código
 

@@ -36,6 +36,7 @@ addopts = "-ra --cov=anotador --cov-report=term-missing"
 
 [tool.coverage.run]
 branch = true
+omit = ["*/__main__.py"]
 
 [tool.coverage.report]
 exclude_lines = [
