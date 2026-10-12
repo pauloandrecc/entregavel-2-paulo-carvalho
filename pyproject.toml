@@ -15,7 +15,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "pytest-cov>=5",
     "ruff>=0.6",
+    "poethepoet>=0.29",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -30,4 +32,21 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra --cov=anotador --cov-report=term-missing"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+]
+
+[tool.poe.tasks]
+lint = "ruff check ."
+fmt-check = "ruff format --check ."
+test = "env -u PYTHONPATH python -m pytest"
+cov = "env -u PYTHONPATH python -m pytest --cov=anotador --cov-report=term-missing"
+check = ["lint", "fmt-check", "test"]
+run = "python -m anotador"
