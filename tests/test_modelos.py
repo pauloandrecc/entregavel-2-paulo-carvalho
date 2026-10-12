@@ -85,6 +85,42 @@ def test_desenhar_classe_sem_cor_levanta_erro(imagem_preta: np.ndarray) -> None:
         d.desenhar(imagem_preta)
 
 
+@pytest.mark.parametrize(
+    ("x_min", "y_min", "x_max", "y_max"),
+    [(0, 0, LARGURA - 1, ALTURA - 1), (10, 20, 30, 40)],
+    ids=["imagem_inteira", "interna"],
+)
+def test_caixa_dentro_dos_limites(x_min: int, y_min: int, x_max: int, y_max: int) -> None:
+    assert Deteccao(0, x_min, y_min, x_max, y_max).esta_dentro_dos_limites(LARGURA, ALTURA)
+
+
+@pytest.mark.parametrize(
+    ("x_min", "y_min", "x_max", "y_max"),
+    [
+        (-1, 10, 30, 40),
+        (10, -1, 30, 40),
+        (30, 10, 30, 40),
+        (40, 10, 30, 40),
+        (10, 40, 30, 40),
+        (10, 50, 30, 40),
+        (10, 10, LARGURA, 40),
+        (10, 10, 30, ALTURA),
+    ],
+    ids=[
+        "x_min_negativo",
+        "y_min_negativo",
+        "x_min_igual_x_max",
+        "x_min_maior_que_x_max",
+        "y_min_igual_y_max",
+        "y_min_maior_que_y_max",
+        "x_max_igual_largura",
+        "y_max_igual_altura",
+    ],
+)
+def test_caixa_fora_dos_limites(x_min: int, y_min: int, x_max: int, y_max: int) -> None:
+    assert not Deteccao(0, x_min, y_min, x_max, y_max).esta_dentro_dos_limites(LARGURA, ALTURA)
+
+
 # --- ImagemAnotada ----------------------------------------------------------
 
 
@@ -165,4 +201,13 @@ def test_gerar_imagem_com_caminho_inexistente_levanta_erro(tmp_path: Path) -> No
     imagem = ImagemAnotada(tmp_path / "nao_existe.png")
 
     with pytest.raises(FileNotFoundError, match="nao_existe.png"):
+        imagem.gerar_imagem()
+
+
+def test_gerar_imagem_com_caixa_fora_dos_limites_levanta_erro(caminho_imagem: Path) -> None:
+    imagem = ImagemAnotada(caminho_imagem)
+    imagem.adicionar_deteccao(Deteccao(0, 10, 10, 50, 50))
+    imagem.adicionar_deteccao(Deteccao(1, 10, 10, LARGURA, 50))
+
+    with pytest.raises(ValueError, match=r"foto\.png.*fora dos limites.*200x100"):
         imagem.gerar_imagem()

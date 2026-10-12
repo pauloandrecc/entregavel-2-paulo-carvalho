@@ -20,6 +20,10 @@ class Deteccao:
     x_max: int
     y_max: int
 
+    def esta_dentro_dos_limites(self, largura: int, altura: int) -> bool:
+        """Verifica 0 <= x_min < x_max < largura e 0 <= y_min < y_max < altura."""
+        return 0 <= self.x_min < self.x_max < largura and 0 <= self.y_min < self.y_max < altura
+
     def desenhar(self, imagem: np.ndarray) -> None:
         if self.classe_id not in CORES_BGR:
             raise ValueError(f"Classe sem cor definida: {self.classe_id}")
@@ -44,6 +48,15 @@ class ImagemAnotada:
         imagem = cv2.imread(str(self.caminho))
         if imagem is None:
             raise FileNotFoundError(f"Não foi possível abrir a imagem: {self.caminho}")
+
+        altura, largura = imagem.shape[:2]
+        for deteccao in self.deteccoes:
+            if not deteccao.esta_dentro_dos_limites(largura, altura):
+                raise ValueError(
+                    f"{self.caminho.name}: caixa fora dos limites da imagem "
+                    f"({largura}x{altura}): {deteccao}"
+                )
+
         for deteccao in self.deteccoes:
             deteccao.desenhar(imagem)
         return imagem

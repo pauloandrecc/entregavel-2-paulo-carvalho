@@ -212,6 +212,26 @@ def test_csv_inexistente_levanta_erro(projeto: Projeto) -> None:
         executar(projeto.csv, projeto.imagens, projeto.resultados, ExibidorFalso())
 
 
+def test_caixa_fora_dos_limites_levanta_erro(projeto: Projeto) -> None:
+    conteudo = projeto.csv.read_text(encoding="utf-8")
+    projeto.csv.write_text(conteudo + f"b.png,0,10,10,{LARGURA},30\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match=r"b\.png.*fora dos limites"):
+        executar(projeto.csv, projeto.imagens, projeto.resultados, ExibidorFalso())
+
+
+def test_classe_invalida_encerra_antes_de_processar_qualquer_imagem(projeto: Projeto) -> None:
+    conteudo = projeto.csv.read_text(encoding="utf-8")
+    projeto.csv.write_text(conteudo + "c.png,5,1,1,2,2\n", encoding="utf-8")
+    exibidor = ExibidorFalso()
+
+    with pytest.raises(ValueError, match="classe_id 5"):
+        executar(projeto.csv, projeto.imagens, projeto.resultados, exibidor)
+
+    assert exibidor.titulos == []
+    assert not projeto.resultados.exists()
+
+
 # --- criar_parser e main ----------------------------------------------------
 
 
