@@ -11,6 +11,7 @@ CORES_BGR: dict[int, tuple[int, int, int]] = {
 }
 ESPESSURA = 2
 
+
 @dataclass(frozen=True)
 class Deteccao:
     classe_id: int
@@ -29,7 +30,8 @@ class Deteccao:
             CORES_BGR[self.classe_id],
             ESPESSURA,
         )
-    
+
+
 @dataclass
 class ImagemAnotada:
     caminho: Path

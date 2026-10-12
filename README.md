@@ -14,7 +14,7 @@ Programa em Python que lê bounding boxes de um arquivo CSV e as desenha sobre a
 - Exibir uma imagem por vez: `espaço` avança, `q` encerra.
 
 ## Dependências
- 
+
 | Pacote | Uso |
 | --- | --- |
 | Python >= 3.10 | linguagem |
@@ -32,20 +32,53 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 ```
 ## Atalhos de desenvolvimento (Poe)
- 
+
 Os comandos mais usados estão definidos em `[tool.poe.tasks]` no `pyproject.toml` e
 funcionam com o ambiente virtual ativo:
- 
+
 | Comando | O que faz | Equivalente |
 | --- | --- | --- |
 | `poe run` | executa o programa | `python -m anotador` |
 | `poe test` | roda os testes | `pytest` |
 | `poe cov` | roda os testes com cobertura | `pytest --cov=anotador --cov-report=term-missing` |
+| `poe cov-html` | gera o relatório de cobertura em `htmlcov/` | `pytest --cov=anotador --cov-report=html` |
 | `poe lint` | verifica o código com o ruff | `ruff check .` |
 | `poe fmt-check` | verifica a formatação | `ruff format --check .` |
 | `poe check` | lint, formatação e testes em sequência | os três acima |
- 
+| `poe fix` | aplica as correções automáticas do lint | `ruff check --fix .` |
+| `poe format` | formata o código | `ruff format .` |
+| `poe fmt` | `fix` e depois `format` | os dois acima |
+
 Para listar as tarefas disponíveis: `poe --help`.
+
+## Controles do visualizador
+
+| Tecla | Ação |
+| --- | --- |
+| `Espaço` | avança para a próxima imagem |
+| `q` | encerra o programa |
+| qualquer outra | mantém a imagem atual |
+
+Ao chegar à última imagem, as janelas são fechadas.
+
+## Leitura do CSV
+
+O módulo `src/anotador/leitura.py` lê `dados/anotacoes.csv` com o módulo `csv` da
+biblioteca padrão. O arquivo deve ter o cabeçalho:
+
+```csv
+imagem,classe_id,x_min,y_min,x_max,y_max
+```
+
+A função `ler_anotacoes(caminho)` devolve uma lista de `LinhaAnotacao` (um `TypedDict`),
+uma por linha do arquivo e na mesma ordem, com `classe_id`, `x_min`, `y_min`, `x_max` e
+`y_max` convertidos para `int`. As colunas podem estar em qualquer ordem.
+
+Erros:
+
+- `FileNotFoundError`, se o arquivo não existir;
+- `ValueError`, se faltar alguma coluna no cabeçalho ou se um valor numérico for inválido
+  (texto, decimal ou vazio). A mensagem informa o número da linha com problema.
 
 ## Estrutura
 
@@ -60,19 +93,19 @@ Para listar as tarefas disponíveis: `poe --help`.
 ```
 
 ## Classes
- 
+
 As classes ficam em `src/anotador/modelos.py`.
- 
+
 ### `Deteccao`
- 
+
 Representa uma bounding box. Guarda `classe_id`, `x_min`, `y_min`, `x_max` e `y_max`
 e é imutável (`dataclass` com `frozen=True`). O método `desenhar(imagem)` desenha a
 própria caixa na imagem recebida, usando a cor da classe definida em `CORES_BGR`
 (classe 0 em verde, classe 1 em vermelho, no formato BGR do OpenCV). Uma classe sem
 cor definida levanta `ValueError`.
- 
+
 ### `ImagemAnotada`
- 
+
 Associa uma imagem às suas detecções. Guarda o `caminho` do arquivo e a lista
 `deteccoes`. O método `adicionar_deteccao(deteccao)` inclui uma caixa na lista, e
 `gerar_imagem()` lê o arquivo e devolve uma cópia com todas as caixas desenhadas,
@@ -80,33 +113,39 @@ chamando `desenhar` de cada detecção. O arquivo de entrada não é alterado e 
 resolução original é mantida.
 
 ## Testes
- 
+
 ```bash
 poe test               # ou: python -m pytest
 poe cov                # testes com cobertura no terminal
 ```
- 
+
 Para um relatório de cobertura em HTML (abra `htmlcov/index.html` no navegador):
- 
+
 ```bash
 pytest --cov=anotador --cov-report=html
 ```
 
 Os testes ficam em `tests/`. O arquivo `tests/test_modelos.py` cobre `modelos.py` usando
 imagens sintéticas (NumPy) e arquivos temporários (`tmp_path`), sem abrir janelas:
- 
+
 - `Deteccao`: valores armazenados, imutabilidade, cor da borda por classe, interior e área
   externa intactos, `shape` preservado e erro para classe sem cor.
 - `ImagemAnotada`: lista de detecções independente por instância, ordem das detecções,
   todas as caixas desenhadas, resolução original, arquivo de entrada intacto e erro para
   caminho inexistente.
 
+O arquivo `tests/test_leitura.py` cobre `leitura.py` com CSVs temporários (`tmp_path`):
+conversão para `int`, ordem preservada, colunas em outra ordem, espaços e BOM UTF-8,
+arquivo vazio ou só com cabeçalho, coluna faltando, valor numérico inválido (com o número
+da linha no erro) e arquivo inexistente.
+
 ## Qualidade de código
- 
+
 ```bash
 poe lint               # ruff check .
 poe fmt-check          # ruff format --check .
 poe check              # lint + formatação + testes
+poe fmt                # corrige o lint (o que for automático) e formata o código
 ```
- 
+
 O CI (GitHub Actions) roda lint, verificação de formatação e testes a cada push e pull request.

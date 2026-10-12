@@ -44,9 +44,19 @@ exclude_lines = [
 ]
 
 [tool.poe.tasks]
+run = "python -m anotador"
+
+# testes
+test = "pytest"
+cov = "pytest --cov=anotador --cov-report=term-missing"
+cov-html = "pytest --cov=anotador --cov-report=html"
+
+# verificação (só lê, não altera arquivos)
 lint = "ruff check ."
 fmt-check = "ruff format --check ."
-test = "env -u PYTHONPATH python -m pytest"
-cov = "env -u PYTHONPATH python -m pytest --cov=anotador --cov-report=term-missing"
 check = ["lint", "fmt-check", "test"]
-run = "python -m anotador"
+
+# correção (altera arquivos)
+fix = "ruff check --fix ."
+format = "ruff format ."
+fmt = ["fix", "format"]
